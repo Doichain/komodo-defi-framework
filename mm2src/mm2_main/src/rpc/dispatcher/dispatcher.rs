@@ -1,6 +1,6 @@
 use super::streaming_activations;
 use super::wc_commands::{disconnect_session, get_all_sessions, get_session};
-use super::{DispatcherError, DispatcherResult, PUBLIC_METHODS};
+use super::{is_key_export_refused, DispatcherError, DispatcherResult, PUBLIC_METHODS};
 use crate::lp_healthcheck::peer_connection_healthcheck_rpc;
 use crate::lp_native_dex::init_hw::{cancel_init_trezor, init_trezor, init_trezor_status, init_trezor_user_action};
 #[cfg(target_arch = "wasm32")]
@@ -113,6 +113,9 @@ pub async fn process_single_request(
     }
 
     auth(&request, &ctx, &client).await?;
+    if is_key_export_refused(&ctx, &request.method) {
+        return MmError::err(DispatcherError::KeyExportDisabled);
+    }
     match request.mmrpc {
         MmRpcVersion::V2 => dispatcher_v2(request, ctx).await,
     }

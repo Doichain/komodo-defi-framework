@@ -73,6 +73,15 @@ const PUBLIC_METHODS: &[Option<&str>] = &[
     None,
 ];
 
+/// Lists the RPC methods that return private key material.
+/// They are refused unless `allow_key_export` is `true` in the config.
+const KEY_EXPORT_METHODS: &[&str] = &["get_mnemonic", "get_private_keys", "show_priv_key"];
+
+/// Whether `method` returns private key material and the config does not allow that.
+fn is_key_export_refused(ctx: &MmArc, method: &str) -> bool {
+    KEY_EXPORT_METHODS.contains(&method) && ctx.conf["allow_key_export"].as_bool() != Some(true)
+}
+
 pub type DispatcherResult<T> = Result<T, MmError<DispatcherError>>;
 
 #[derive(Display, Serialize, SerializeErrorType)]
@@ -90,6 +99,10 @@ pub enum DispatcherError {
     UserpassIsNotSet,
     #[display(fmt = "Userpass is invalid! - {_0}")]
     UserpassIsInvalid(RateLimitError),
+    #[display(
+        fmt = "Selected method returns private keys and is disabled. Set 'allow_key_export' in the config to enable it."
+    )]
+    KeyExportDisabled,
     #[display(fmt = "Error parsing mmrpc version: {_0}")]
     InvalidMmRpcVersion(String),
 }
@@ -103,6 +116,7 @@ impl HttpStatusCode for DispatcherError {
             DispatcherError::LocalHostOnly
             | DispatcherError::UserpassIsNotSet
             | DispatcherError::UserpassIsInvalid(_)
+            | DispatcherError::KeyExportDisabled
             | DispatcherError::Banned => StatusCode::FORBIDDEN,
         }
     }
@@ -544,4 +558,29 @@ pub fn spawn_rpc(ctx_h: u32) {
         fmt = ">>>>>>>>>> DEX stats API enabled at unixtime.{}  <<<<<<<<<",
         common::now_ms() / 1000
     );
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod key_export_tests {
+    use super::is_key_export_refused;
+    use mm2_core::mm_ctx::MmCtxBuilder;
+    use serde_json::json;
+
+    #[test]
+    fn key_export_is_refused_unless_allowed() {
+        let default_ctx = MmCtxBuilder::new().with_conf(json!({})).into_mm_arc();
+        let denied_ctx = MmCtxBuilder::new()
+            .with_conf(json!({ "allow_key_export": false }))
+            .into_mm_arc();
+        let allowed_ctx = MmCtxBuilder::new()
+            .with_conf(json!({ "allow_key_export": true }))
+            .into_mm_arc();
+
+        for method in ["get_mnemonic", "get_private_keys", "show_priv_key"] {
+            assert!(is_key_export_refused(&default_ctx, method), "{}", method);
+            assert!(is_key_export_refused(&denied_ctx, method), "{}", method);
+            assert!(!is_key_export_refused(&allowed_ctx, method), "{}", method);
+        }
+        assert!(!is_key_export_refused(&default_ctx, "my_balance"));
+    }
 }
