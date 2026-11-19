@@ -78,5 +78,12 @@ jobs:
       - name: Show toolchain
         run: rustc --version && cargo --version
 
+      # Tests that need a public test network are listed in .github/ci-skip-tests.txt.
       - name: Test
-        run: cargo test --locked --bins --lib --no-fail-fast
+        run: |
+          skip=()
+          while read -r name; do
+            skip+=(--skip "$name")
+          done < <(grep -v '^#' .github/ci-skip-tests.txt | grep -v '^$')
+          echo "skipping ${#skip[@]} arguments worth of tests ($(( ${#skip[@]} / 2 )) tests)"
+          cargo test --locked --bins --lib --no-fail-fast -- "${skip[@]}"
