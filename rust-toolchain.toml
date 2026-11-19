@@ -1,3 +1,4 @@
 [toolchain]
-channel = "stable"
+# Pinned: the workspace does not compile with newer stable compilers yet.
+channel = "1.94.0"
 components = ["rustfmt", "clippy", "rust-analyzer"]
