@@ -158,14 +158,15 @@ async fn auth(request: &MmRpcRequest, ctx: &MmArc, client: &SocketAddr) -> Dispa
         return Ok(());
     }
 
-    let rpc_password = ctx.conf["rpc_password"].as_str().unwrap_or_else(|| {
+    // Without a configured password no userpass is valid, as in the legacy dispatcher.
+    let rpc_password = ctx.conf["rpc_password"].as_str().filter(|password| !password.is_empty());
+    if rpc_password.is_none() {
         warn!("'rpc_password' is not set in the config");
-        ""
-    });
-    match request.userpass {
-        Some(ref userpass) if userpass == rpc_password => Ok(()),
-        Some(_) => Err(process_rate_limit(ctx, client).await),
-        None => MmError::err(DispatcherError::UserpassIsNotSet),
+    }
+    match (request.userpass.as_deref(), rpc_password) {
+        (None, _) => MmError::err(DispatcherError::UserpassIsNotSet),
+        (Some(userpass), Some(rpc_password)) if userpass == rpc_password => Ok(()),
+        (Some(_), _) => Err(process_rate_limit(ctx, client).await),
     }
 }
 

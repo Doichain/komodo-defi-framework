@@ -173,22 +173,25 @@ pub async fn lp_main(
     init_logger(log_filter, params.conf["silent_console"].as_bool().unwrap_or_default()).ok();
 
     let conf = params.conf;
-    if !conf["rpc_password"].is_null() {
-        if !conf["rpc_password"].is_string() {
-            return ERR!("rpc_password must be string");
-        }
+    // The RPC password guards every private method, so the node does not start without one.
+    if conf["rpc_password"].is_null() {
+        return ERR!("rpc_password must be set");
+    }
 
-        let is_weak_password_accepted = conf["allow_weak_password"].as_bool() == Some(true);
+    if !conf["rpc_password"].is_string() {
+        return ERR!("rpc_password must be string");
+    }
 
-        if conf["rpc_password"].as_str() == Some("") {
-            return ERR!("rpc_password must not be empty");
-        }
+    let is_weak_password_accepted = conf["allow_weak_password"].as_bool() == Some(true);
 
-        if !is_weak_password_accepted && cfg!(not(test)) {
-            match password_policy(conf["rpc_password"].as_str().unwrap()) {
-                Ok(_) => {},
-                Err(err) => return Err(format!("{err}")),
-            }
+    if conf["rpc_password"].as_str() == Some("") {
+        return ERR!("rpc_password must not be empty");
+    }
+
+    if !is_weak_password_accepted && cfg!(not(test)) {
+        match password_policy(conf["rpc_password"].as_str().unwrap()) {
+            Ok(_) => {},
+            Err(err) => return Err(format!("{err}")),
         }
     }
 
