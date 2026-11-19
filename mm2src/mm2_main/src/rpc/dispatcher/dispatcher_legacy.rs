@@ -1,4 +1,4 @@
-use super::PUBLIC_METHODS;
+use super::{is_key_export_refused, PUBLIC_METHODS};
 use common::HyRes;
 use derive_more::Display;
 use futures::compat::Future01CompatExt;
@@ -153,6 +153,16 @@ pub async fn process_single_request(
     auth(&req, &ctx, &client)
         .await
         .map_err(|reason| LegacyRequestProcessError::Failed { reason })?;
+
+    if req["method"]
+        .as_str()
+        .is_some_and(|method| is_key_export_refused(&ctx, method))
+    {
+        return Err(LegacyRequestProcessError::NotAllowed {
+            reason: "Selected method returns private keys and is disabled. Set 'allow_key_export' in the config to enable it."
+                .to_owned(),
+        });
+    }
 
     let handler = match dispatcher(req, ctx.clone()) {
         DispatcherRes::Match(handler) => handler,
