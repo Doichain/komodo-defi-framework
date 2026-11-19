@@ -1,11 +1,12 @@
 # Unit tests the fork's CI skips, one test path per line.
 #
 # Each of them talks to a public test network or a third-party server
-# (Qtum testnet Electrum, a Cosmos test chain, Firo, public Electrum servers)
+# (Qtum testnet Electrum, a Cosmos test chain, an Ethereum node, Firo, public Electrum servers)
 # and fails when that service is gone or no longer has the transaction the
 # test looks for. They failed on the first Linux run of this fork without any
 # change to the code they cover. None of them is on the UTXO path this fork
 # is used for. Remove a line when its test runs offline or its service is back.
+eth::eth_tests::validate_dex_fee_eth_confirmed_before_min_block
 qrc20::history::tests::test_process_cached_tx_transfer_map_reload_is_required
 qrc20::history::tests::test_process_cached_tx_transfer_map_update_is_not_needed
 qrc20::history::tests::test_process_cached_tx_transfer_map_updated
