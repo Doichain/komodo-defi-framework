@@ -173,22 +173,25 @@ pub async fn lp_main(
     init_logger(log_filter, params.conf["silent_console"].as_bool().unwrap_or_default()).ok();
 
     let conf = params.conf;
-    if !conf["rpc_password"].is_null() {
-        if !conf["rpc_password"].is_string() {
-            return ERR!("rpc_password must be string");
-        }
+    // The RPC password guards every private method, so the node does not start without one.
+    if conf["rpc_password"].is_null() {
+        return ERR!("rpc_password must be set");
+    }
 
-        let is_weak_password_accepted = conf["allow_weak_password"].as_bool() == Some(true);
+    if !conf["rpc_password"].is_string() {
+        return ERR!("rpc_password must be string");
+    }
 
-        if conf["rpc_password"].as_str() == Some("") {
-            return ERR!("rpc_password must not be empty");
-        }
+    let is_weak_password_accepted = conf["allow_weak_password"].as_bool() == Some(true);
 
-        if !is_weak_password_accepted && cfg!(not(test)) {
-            match password_policy(conf["rpc_password"].as_str().unwrap()) {
-                Ok(_) => {},
-                Err(err) => return Err(format!("{err}")),
-            }
+    if conf["rpc_password"].as_str() == Some("") {
+        return ERR!("rpc_password must not be empty");
+    }
+
+    if !is_weak_password_accepted && cfg!(not(test)) {
+        match password_policy(conf["rpc_password"].as_str().unwrap()) {
+            Ok(_) => {},
+            Err(err) => return Err(format!("{err}")),
         }
     }
 
@@ -373,4 +376,21 @@ fn init_logger(_level: LogLevel, silent_console: bool) -> Result<(), String> {
 #[cfg(target_arch = "wasm32")]
 fn init_logger(level: LogLevel, _silent_console: bool) -> Result<(), String> {
     common::log::WasmLoggerBuilder::default().level_filter(level).try_init()
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod lp_main_tests {
+    use super::{lp_main, LpMainParams};
+    use common::block_on;
+    use serde_json::json;
+
+    #[test]
+    fn lp_main_requires_rpc_password() {
+        let params = LpMainParams::with_conf(json!({ "gui": "test" }));
+        let err = match block_on(lp_main(params, &|_| (), "TEST".into(), "TEST".into())) {
+            Ok(_) => panic!("lp_main must not start without rpc_password"),
+            Err(err) => err,
+        };
+        assert!(err.contains("rpc_password must be set"), "{}", err);
+    }
 }
