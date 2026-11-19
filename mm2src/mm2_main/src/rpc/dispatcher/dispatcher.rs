@@ -159,7 +159,9 @@ async fn auth(request: &MmRpcRequest, ctx: &MmArc, client: &SocketAddr) -> Dispa
     }
 
     // Without a configured password no userpass is valid, as in the legacy dispatcher.
-    let rpc_password = ctx.conf["rpc_password"].as_str().filter(|password| !password.is_empty());
+    let rpc_password = ctx.conf["rpc_password"]
+        .as_str()
+        .filter(|password| !password.is_empty());
     if rpc_password.is_none() {
         warn!("'rpc_password' is not set in the config");
     }

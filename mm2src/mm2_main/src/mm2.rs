@@ -377,3 +377,20 @@ fn init_logger(_level: LogLevel, silent_console: bool) -> Result<(), String> {
 fn init_logger(level: LogLevel, _silent_console: bool) -> Result<(), String> {
     common::log::WasmLoggerBuilder::default().level_filter(level).try_init()
 }
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod lp_main_tests {
+    use super::{lp_main, LpMainParams};
+    use common::block_on;
+    use serde_json::json;
+
+    #[test]
+    fn lp_main_requires_rpc_password() {
+        let params = LpMainParams::with_conf(json!({ "gui": "test" }));
+        let err = match block_on(lp_main(params, &|_| (), "TEST".into(), "TEST".into())) {
+            Ok(_) => panic!("lp_main must not start without rpc_password"),
+            Err(err) => err,
+        };
+        assert!(err.contains("rpc_password must be set"), "{}", err);
+    }
+}
